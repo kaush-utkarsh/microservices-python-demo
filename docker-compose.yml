@@ -1,0 +1,44 @@
+version: "3.9"
+
+# Docker Compose automatically loads variables from a .env file in the same directory.
+# We still pass them explicitly to each service via `environment:` so they are visible inside containers.
+
+services:
+  catalog:
+    build: ./services/catalog
+    container_name: demo_catalog
+    environment:
+      # Service metadata
+      APP_VERSION: "${APP_VERSION:-0.1.0}"
+    ports:
+      - "8000:8000"
+
+  orders:
+    build: ./services/orders
+    container_name: demo_orders
+    depends_on:
+      - catalog
+    environment:
+      APP_VERSION: "${APP_VERSION:-0.1.0}"
+      # In-cluster URL for Catalog (service name + port)
+      CATALOG_URL: "${CATALOG_URL:-http://catalog:8000}"
+      # Network hygiene
+      HTTP_TIMEOUT: "${HTTP_TIMEOUT:-2.5}"
+      RETRY_ATTEMPTS: "${RETRY_ATTEMPTS:-2}"
+    ports:
+      - "8001:8001"
+
+  gateway:
+    build: ./services/gateway
+    container_name: demo_gateway
+    depends_on:
+      - catalog
+      - orders
+    environment:
+      APP_VERSION: "${APP_VERSION:-0.1.0}"
+      # In-cluster URLs for downstream services (override in .env if needed)
+      CATALOG_URL: "${CATALOG_URL:-http://catalog:8000}"
+      ORDERS_URL:  "${ORDERS_URL:-http://orders:8001}"
+      HTTP_TIMEOUT: "${HTTP_TIMEOUT:-2.5}"
+    ports:
+      - "8080:8080"
